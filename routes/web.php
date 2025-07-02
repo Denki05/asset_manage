@@ -23,9 +23,9 @@ Route::get('/home', function () {
 // Middleware utama: user harus login
 Route::middleware('auth')->group(function () {
 
-    // 📦 List produk (semua role bisa akses)
+    // ðŸ“¦ List produk (semua role bisa akses)
     Route::get('/products', 'ProductController@index')->name('products.index');
-    // 🔄 Sinkronisasi data produk (hanya developer)
+    // ðŸ”„ Sinkronisasi data produk (hanya developer)
     Route::middleware('check.access:developer')->group(function () {
         Route::get('/sync-product', [ProductController::class, 'sync'])->name('products.sync');
         // Upload image + video
@@ -34,8 +34,17 @@ Route::middleware('auth')->group(function () {
         Route::post('/product/{id}/delete', 'AssetController@destroy')->name('asset.delete');
     });
 
-    // 📷 Upload hanya image (developer & design)
+    // ðŸ“· Upload hanya image (developer & design)
     Route::middleware('check.access:developer,design')->group(function () {
         Route::post('/product/{id}/upload-image', 'AssetController@uploadImageOnly')->name('asset.uploadImageOnly');
     });
 });
+
+Route::get('/preview/{productId}/{filename}', function ($productId, $filename) {
+    $path = public_path("assets/$productId/$filename");
+    if (!file_exists($path)) {
+        abort(404);
+    }
+
+    return response()->file($path);
+})->name('file.preview');

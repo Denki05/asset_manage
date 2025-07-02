@@ -8,6 +8,7 @@ use App\CollectAssetProductFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\File;
 
 class AssetController extends Controller
 {
@@ -36,7 +37,6 @@ class AssetController extends Controller
 
                 CollectAssetProductFile::create([
                     'product_id' => $id,
-                    'filename'   => $filename,
                     'file_path'  => "assets/$id/$filename",
                     'file_type'  => $type, // enum value: 'image' or 'video'\
                     'label'      => $request->input('label') ?: null,
@@ -69,7 +69,6 @@ class AssetController extends Controller
 
                 CollectAssetProductFile::create([
                     'product_id' => $id,
-                    'filename'   => $filename,
                     'file_path'  => "assets/$id/$filename",
                     'file_type'  => 'image', // Hanya image yang diizinkan
                     'label'      => $request->input('label') ?: null,
@@ -83,24 +82,34 @@ class AssetController extends Controller
     public function destroy(Request $request, $id)
     {
         if (Auth::user()->role !== 'developer') {
-            abort(403);
+            abort(403, 'Akses ditolak.');
         }
-
-        $filename = $request->input('filename');
-        $filepath = $filename;
-
-        if (file_exists($filepath)) {
-            unlink($filepath);
-
-            // Hapus juga dari database jika ada
-            \App\CollectAssetProductFile::where('product_id', $id)
-                ->where('file_path', $filename)
-                ->delete();
-
+    
+        $filename = $request->input('filename'); // contoh: "assets/3774/image1.jpg"
+        if (!$filename || !str_starts_with($filename, 'assets/')) {
+            return back()->withErrors(['error' => 'Path file tidak valid.']);
+        }
+    
+        // Pastikan file benar-benar milik produk ini
+        $record = CollectAssetProductFile::where('product_id', $id)
+            ->where('file_path', $filename)
+            ->first();
+    
+        if (!$record) {
+            return back()->withErrors(['error' => 'Data file tidak ditemukan di database.']);
+        }
+    
+        $filepath = public_path($filename); // e.g., public/assets/3774/image1.jpg
+    
+        if (File::exists($filepath)) {
+            File::delete($filepath);
+    
+            // Hapus dari database
+            $record->delete();
+    
             return back()->with('status', 'Asset berhasil dihapus.');
         }
-
-        return back()->withErrors(['error' => 'File tidak ditemukan.']);
+    
+        return back()->withErrors(['error' => 'File tidak ditemukan di server.']);
     }
-
 }

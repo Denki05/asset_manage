@@ -65,13 +65,21 @@
                                             @php
                                                 $ext = strtolower(pathinfo($file->file_path, PATHINFO_EXTENSION));
                                                 $isImage = in_array($ext, ['jpg', 'jpeg', 'png']);
-                                                $fullPath = asset($file->file_path);
+                                
+                                                // Ambil productId dan filename dari file_path
+                                                $segments = explode('/', $file->file_path); // e.g., ['assets', '3774', 'filename.jpg']
+                                                $productId = $segments[1] ?? null;
+                                                $filename  = $segments[2] ?? null;
+                                
+                                                $fullPath = $productId && $filename
+                                                    ? route('file.preview', ['productId' => $productId, 'filename' => $filename])
+                                                    : '#';
                                             @endphp
                                             <div class="border p-1 text-center rounded bg-light" style="width: 80px;">
                                                 @if ($file->label)
                                                     <span class="badge bg-info d-block small mb-1">{{ $file->label }}</span>
                                                 @endif
-
+                                
                                                 @if ($isImage)
                                                     <img src="{{ $fullPath }}" alt="" class="img-fluid rounded" style="height: 60px; cursor: pointer;"
                                                          data-bs-toggle="modal" data-bs-target="#previewModal{{ $file->id }}">
@@ -89,7 +97,7 @@
                                                 @else
                                                     <small class="text-muted">File?</small>
                                                 @endif
-
+                                
                                                 @if (Auth::user()->role === 'developer')
                                                     <form action="{{ url('/product/'.$p->id.'/delete') }}" method="POST"
                                                           onsubmit="return confirm('Yakin hapus file?')">
@@ -104,6 +112,7 @@
                                 @else
                                     <span class="text-muted small">Belum ada file</span>
                                 @endif
+
                             </td>
                         </tr>
                     @endforeach
