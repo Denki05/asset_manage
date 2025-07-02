@@ -15,33 +15,28 @@ Route::get('/', function () {
 
 Auth::routes();
 
-// Setelah login langsung ke list produk
 Route::get('/home', function () {
     return redirect()->route('products.index');
 });
 
-// Middleware utama: user harus login
 Route::middleware('auth')->group(function () {
-
-    // ðŸ“¦ List produk (semua role bisa akses)
     Route::get('/products', 'ProductController@index')->name('products.index');
-    // ðŸ”„ Sinkronisasi data produk (hanya developer)
+
     Route::middleware('check.access:developer')->group(function () {
         Route::get('/sync-product', [ProductController::class, 'sync'])->name('products.sync');
-        // Upload image + video
-        Route::post('/product/{id}/upload', 'AssetController@upload')->name('asset.upload');
-        // Hapus file asset
-        Route::post('/product/{id}/delete', 'AssetController@destroy')->name('asset.delete');
+        Route::post('/product/{encodedId}/upload', 'AssetController@upload')->name('asset.upload');
+        Route::post('/product/{encodedId}/delete', 'AssetController@destroy')->name('asset.delete');
     });
 
-    // ðŸ“· Upload hanya image (developer & design)
     Route::middleware('check.access:developer,design')->group(function () {
-        Route::post('/product/{id}/upload-image', 'AssetController@uploadImageOnly')->name('asset.uploadImageOnly');
+        Route::post('/product/{encodedId}/upload-image', 'AssetController@uploadImageOnly')->name('asset.uploadImageOnly');
     });
 });
 
-Route::get('/preview/{productId}/{filename}', function ($productId, $filename) {
-    $path = public_path("assets/$productId/$filename");
+Route::get('/preview/{encodedId}/{filename}', function ($encodedId, $filename) {
+    $decodedId = base64_decode(strtr($encodedId, '-_', '+/'));
+    $path = public_path("assets/$decodedId/$filename");
+
     if (!file_exists($path)) {
         abort(404);
     }

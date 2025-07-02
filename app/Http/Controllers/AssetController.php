@@ -12,8 +12,15 @@ use Illuminate\Support\Facades\File;
 
 class AssetController extends Controller
 {
-    public function upload(Request $request, $id)
+    private function decodeId($encodedId)
     {
+        return base64_decode(strtr($encodedId, '-_', '+/'));
+    }
+
+    public function upload(Request $request, $encodedId)
+    {
+        $id = $this->decodeId($encodedId);
+
         if (Auth::user()->role !== 'developer') {
             abort(403);
         }
@@ -38,7 +45,7 @@ class AssetController extends Controller
                 CollectAssetProductFile::create([
                     'product_id' => $id,
                     'file_path'  => "assets/$id/$filename",
-                    'file_type'  => $type, // enum value: 'image' or 'video'\
+                    'file_type'  => $type,
                     'label'      => $request->input('label') ?: null,
                 ]);
             }
@@ -47,8 +54,10 @@ class AssetController extends Controller
         return back()->with('status', 'Asset berhasil diupload.');
     }
 
-    public function uploadImageOnly(Request $request, $id)
+    public function uploadImageOnly(Request $request, $encodedId)
     {
+        $id = $this->decodeId($encodedId);
+
         if (!in_array(Auth::user()->role, ['developer', 'design'])) {
             abort(403);
         }
@@ -70,7 +79,7 @@ class AssetController extends Controller
                 CollectAssetProductFile::create([
                     'product_id' => $id,
                     'file_path'  => "assets/$id/$filename",
-                    'file_type'  => 'image', // Hanya image yang diizinkan
+                    'file_type'  => 'image',
                     'label'      => $request->input('label') ?: null,
                 ]);
             }
@@ -79,37 +88,25 @@ class AssetController extends Controller
         return back()->with('status', 'Gambar berhasil diupload.');
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, $encodedId)
     {
+        $id = $this->decodeId($encodedId);
+
         if (Auth::user()->role !== 'developer') {
-            abort(403, 'Akses ditolak.');
+            abort(403);
         }
-    
-        $filename = $request->input('filename'); // contoh: "assets/3774/image1.jpg"
-        if (!$filename || !str_starts_with($filename, 'assets/')) {
-            return back()->withErrors(['error' => 'Path file tidak valid.']);
+
+        $filePath = $request->input('filename');
+        $fullPath = public_path($filePath);
+
+        if (file_exists($fullPath)) {
+            unlink($fullPath);
         }
-    
-        // Pastikan file benar-benar milik produk ini
-        $record = CollectAssetProductFile::where('product_id', $id)
-            ->where('file_path', $filename)
-            ->first();
-    
-        if (!$record) {
-            return back()->withErrors(['error' => 'Data file tidak ditemukan di database.']);
-        }
-    
-        $filepath = public_path($filename); // e.g., public/assets/3774/image1.jpg
-    
-        if (File::exists($filepath)) {
-            File::delete($filepath);
-    
-            // Hapus dari database
-            $record->delete();
-    
-            return back()->with('status', 'Asset berhasil dihapus.');
-        }
-    
-        return back()->withErrors(['error' => 'File tidak ditemukan di server.']);
+
+        CollectAssetProductFile::where('product_id', $id)
+            ->where('file_path', $filePath)
+            ->delete();
+
+        return back()->with('status', 'File berhasil dihapus.');
     }
 }
